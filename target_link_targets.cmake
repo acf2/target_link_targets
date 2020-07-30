@@ -8,9 +8,9 @@ macro(target_link_targets NAME)
     # When adding new dependencies, there are two different approaches
     get_target_property(__OBJSTRUCT__NAME_TYPE ${NAME} TYPE)
     if (${__OBJSTRUCT__NAME_TYPE} STREQUAL "OBJECT_LIBRARY")
-        # NAME is my fellow object library
+        # NAME is an object library
         # Links are propagated "as is"
-        # But little more effort is invested in saving all the dependencies
+        # Sources, however, should be saved in a shallow list (to iterate over without recursion)
         target_link_libraries(${NAME} ${ARGN})
         foreach(DEPENDENCY ${ARGN})
             if(TARGET ${DEPENDENCY})
@@ -18,17 +18,18 @@ macro(target_link_targets NAME)
                 if (${__OBJSTRUCT__DEPENDENCY_TYPE} STREQUAL "OBJECT_LIBRARY")
                     # We forcefully "flatten" sources and public headers
                     set_property(TARGET ${NAME} APPEND
-                        PROPERTY TRANSITIVE_SOURCES 
-                        "$<TARGET_OBJECTS:${DEPENDENCY}>;$<GENEX_EVAL:$<TARGET_PROPERTY:${DEPENDENCY},TRANSITIVE_SOURCES>>")
+                                 PROPERTY TRANSITIVE_SOURCES
+                                 "$<TARGET_OBJECTS:${DEPENDENCY}>;$<GENEX_EVAL:$<TARGET_PROPERTY:${DEPENDENCY},TRANSITIVE_SOURCES>>")
                     set_property(TARGET ${NAME} APPEND
-                        PROPERTY PUBLIC_HEADER
-						$<GENEX_EVAL:$<TARGET_PROPERTY:${DEPENDENCY},PUBLIC_HEADER>>)
+                                 PROPERTY PUBLIC_HEADER
+                                 $<GENEX_EVAL:$<TARGET_PROPERTY:${DEPENDENCY},PUBLIC_HEADER>>)
                 endif()
             endif()
         endforeach()
     else()
-        # Normal library or executable is considered a "terminal target"
-		# That is, all dependencies from object targets consolidate here
+        # NAME is a normal library or executable
+        # it is considered a "terminal target"
+        # That is, all dependencies from object targets consolidate here
         set(__OBJSTRUCT__ARG_LIST "")
         set(__OBJSTRUCT__SOURCE_LIST "")
         set(__OBJSTRUCT__PUBLIC_HEADER_LIST "")
@@ -55,9 +56,9 @@ macro(target_link_targets NAME)
         target_link_libraries(${NAME} ${__OBJSTRUCT__ARG_LIST})
         # All object files must be checked for duplicates
         target_sources(${NAME} PUBLIC $<REMOVE_DUPLICATES:$<GENEX_EVAL:${__OBJSTRUCT__SOURCE_LIST}>>)
-        # Add public headers to termial target
+        # And public headers are checked too, just in case
         set_target_properties(${NAME} PROPERTIES
-			PUBLIC_HEADER $<REMOVE_DUPLICATES:$<GENEX_EVAL:${__OBJSTRUCT__PUBLIC_HEADER_LIST}>>)
+                              PUBLIC_HEADER $<REMOVE_DUPLICATES:$<GENEX_EVAL:${__OBJSTRUCT__PUBLIC_HEADER_LIST}>>)
 
         unset(__OBJSTRUCT__ARG_LIST)
         unset(__OBJSTRUCT__SOURCE_LIST)
